@@ -176,12 +176,34 @@ function setup_reverse_proxy() {
         fi
     done
 
+    while true; do
+        read -p "Vuoi inoltrare TCP, UDP o entrambi? (tcp/udp/both): " protocol
+        case "$protocol" in
+            tcp)
+                PROTOCOL_FLAG="TCP"
+                break
+                ;;
+            udp)
+                PROTOCOL_FLAG="UDP"
+                break
+                ;;
+            both)
+                PROTOCOL_FLAG="BOTH"
+                break
+                ;;
+            *)
+                echo -e "${ORANGE}Opzione non valida. Scegli 'tcp', 'udp' o 'both'.${NC}"
+                ;;
+        esac
+    done
+
     # Imposta il reverse proxy usando systemd per renderlo persistente
     apt install socat -y
 
-    cat <<EOF > /etc/systemd/system/socat-proxy-${vps_port}.service
+    if [[ "$PROTOCOL_FLAG" == "TCP" || "$PROTOCOL_FLAG" == "BOTH" ]]; then
+        cat <<EOF > /etc/systemd/system/socat-proxy-tcp-${vps_port}.service
 [Unit]
-Description=Socat Reverse Proxy from port ${vps_port} to local port ${local_port}
+Description=Socat Reverse Proxy TCP from port ${vps_port} to local port ${local_port}
 After=network.target
 
 [Service]
@@ -191,14 +213,33 @@ Restart=always
 [Install]
 WantedBy=multi-user.target
 EOF
+        systemctl daemon-reload
+        systemctl start socat-proxy-tcp-${vps_port}.service
+        systemctl enable socat-proxy-tcp-${vps_port}.service
+    fi
 
-    systemctl daemon-reload
-    systemctl start socat-proxy-${vps_port}.service
-    systemctl enable socat-proxy-${vps_port}.service
+    if [[ "$PROTOCOL_FLAG" == "UDP" || "$PROTOCOL_FLAG" == "BOTH" ]]; then
+        cat <<EOF > /etc/systemd/system/socat-proxy-udp-${vps_port}.service
+[Unit]
+Description=Socat Reverse Proxy UDP from port ${vps_port} to local port ${local_port}
+After=network.target
 
-    echo -e "${GREEN}Reverse proxy impostato sulla porta ${vps_port} che inoltra al client sulla porta ${local_port}${NC}"
-    echo "${vps_port} -> ${local_port}" >> /etc/wireguard/forwarded_ports
+[Service]
+ExecStart=/usr/bin/socat UDP-LISTEN:${vps_port},reuseaddr,fork UDP:10.0.0.2:${local_port}
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        systemctl daemon-reload
+        systemctl start socat-proxy-udp-${vps_port}.service
+        systemctl enable socat-proxy-udp-${vps_port}.service
+    fi
+
+    echo -e "${GREEN}Reverse proxy impostato sulla porta ${vps_port} che inoltra al client sulla porta ${local_port} per il protocollo ${protocol}.${NC}"
+    echo "${vps_port} -> ${local_port} (${protocol})" >> /etc/wireguard/forwarded_ports
 }
+
 
 
 function remove_reverse_proxy() {
@@ -211,10 +252,15 @@ function remove_reverse_proxy() {
         fi
     done
 
-    # Disabilita e rimuove il servizio systemd per il reverse proxy
-    systemctl stop socat-proxy-${vps_port}.service
-    systemctl disable socat-proxy-${vps_port}.service
-    rm /etc/systemd/system/socat-proxy-${vps_port}.service
+    # Identifica i protocolli da rimuovere
+    protocols=$(grep "^${vps_port} ->" /etc/wireguard/forwarded_ports | awk -F' ' '{print $3}' | tr ',' ' ')
+    
+    # Rimuove il servizio systemd per ogni protocollo identificato
+    for protocol in $protocols; do
+        systemctl stop socat-proxy-${vps_port}-${protocol}.service
+        systemctl disable socat-proxy-${vps_port}-${protocol}.service
+        rm /etc/systemd/system/socat-proxy-${vps_port}-${protocol}.service
+    done
 
     # Ricarica i servizi di systemd
     systemctl daemon-reload
@@ -225,16 +271,16 @@ function remove_reverse_proxy() {
     echo -e "${GREEN}Reverse proxy sulla porta ${vps_port} rimosso con successo.${NC}"
 }
 
-
 function list_reverse_proxy() {
     if [ -f /etc/wireguard/forwarded_ports ]; then
         echo -e "${GREEN}Lista dei reverse proxy attivi:${NC}"
-        cat /etc/wireguard/forwarded_ports
+        while IFS= read -r line; do
+            echo -e "${GREEN}${line}${NC}"
+        done < /etc/wireguard/forwarded_ports
     else
         echo -e "${ORANGE}Non ci sono reverse proxy attivi al momento.${NC}"
     fi
 }
-
 
 function check_tunnel_status() {
     if wg show $WG_INTERFACE > /dev/null 2>&1; then
