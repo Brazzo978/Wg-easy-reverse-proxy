@@ -21,3 +21,5 @@ Basically what does that script do , it creates a wireguard tunnel (single clien
 4) Remove one of the current reverse proxies
 5) Uninstall wireguard and remove everything
 6) Exit.
+
+creating a reverse proxy creates a systemd entry that creates a socat entry that will forward all the traffic from the selected  port to the wireguard client , after the first installation it might need a vps reboot.
