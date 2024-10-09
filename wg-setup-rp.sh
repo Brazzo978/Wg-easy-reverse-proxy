@@ -67,7 +67,7 @@ function install_wireguard() {
         if [[ $SERVER_PUB_IP =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ || $SERVER_PUB_IP =~ ^([a-f0-9]{1,4}:){3,7}[a-f0-9]{1,4}$ ]]; then
             break
         else
-            echo -e "${RED}Indirizzo IP non valido. Riprova.${NC}"
+            echo -e "${RED} invalid IP address ${NC}"
         fi
     done
 
@@ -76,22 +76,22 @@ function install_wireguard() {
     SERVER_WG_NIC="wg0"
 
    while true; do
-        read -rp "Server WireGuard IPv4 [10.0.0.1]: " SERVER_WG_IPV4
+        read -rp "WireGuard server local IPv4 [10.0.0.1]: " SERVER_WG_IPV4
         SERVER_WG_IPV4=${SERVER_WG_IPV4:-10.0.0.1}
         if [[ $SERVER_WG_IPV4 =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
             break
         else
-            echo -e "${RED}Indirizzo IPv4 non valido. Riprova.${NC}"
+            echo -e "${RED} invalid IP address ${NC}"
         fi
     done
 
     while true; do
-        read -rp "Server WireGuard IPv6 [fd42:42:42::1]: " SERVER_WG_IPV6
+        read -rp "WireGuard server local IPv6 [fd42:42:42::1]: " SERVER_WG_IPV6
         SERVER_WG_IPV6=${SERVER_WG_IPV6:-fd42:42:42::1}
         if [[ $SERVER_WG_IPV6 =~ ^([a-f0-9]{1,4}:){3,7}[a-f0-9]{1,4}$ ]]; then
             break
         else
-            echo -e "${RED}Indirizzo IPv6 non valido. Riprova.${NC}"
+            echo -e "${RED} invalid IP address ${NC}"
         fi
     done
 
@@ -102,7 +102,7 @@ function install_wireguard() {
         if [[ $SERVER_PORT =~ ^[0-9]+$ ]] && [ $SERVER_PORT -ge 65523 ] && [ $SERVER_PORT -le 65535 ]; then
             break
         else
-            echo -e "${RED}Porta non valida. La porta deve essere compresa tra 65523 e 65535. Riprova.${NC}"
+            echo -e "${RED}Invalid port. port must be >= 65523 || <= 65535. Try again.${NC}"
         fi
     done
 
@@ -159,25 +159,25 @@ EOF
 
 function setup_reverse_proxy() {
     while true; do
-        read -p "Inserisci la porta locale del server (es: 80 per Http): " local_port
+        read -p "Insert the client port to forward (eX: 80 for Http): " local_port
         if [[ $local_port =~ ^[0-9]+$ ]] && [ $local_port -ge 1 ] && [ $local_port -le 65522 ]; then
             break
         else
-            echo -e "${ORANGE}Porta non valida. Assicurati che non sia superiore a 65522. Riprova.${NC}"
+            echo -e "${ORANGE}Port must be lower than 65522. Try Again.${NC}"
         fi
     done
 
     while true; do
-        read -p "Inserisci la porta sulla VPS da aprire: " vps_port
+        read -p "Insert the local port to forward to client: " vps_port
         if [[ $vps_port =~ ^[0-9]+$ ]] && [ $vps_port -ge 1 ] && [ $vps_port -le 65522 ]; then
             break
         else
-            echo -e "${ORANGE}Porta non valida. Assicurati che non sia superiore a 65522. Riprova.${NC}"
+            echo -e "${ORANGE}Port must be lower than 65522. Try again.${NC}"
         fi
     done
 
     while true; do
-        read -p "Vuoi inoltrare TCP, UDP o entrambi? (tcp/udp/both): " protocol
+        read -p "what protocol do you want to forward TCP, UDP or both? (tcp/udp/both): " protocol
         case "$protocol" in
             tcp)
                 PROTOCOL_FLAG="TCP"
@@ -192,7 +192,7 @@ function setup_reverse_proxy() {
                 break
                 ;;
             *)
-                echo -e "${ORANGE}Opzione non valida. Scegli 'tcp', 'udp' o 'both'.${NC}"
+                echo -e "${ORANGE}Invalid option use 'tcp', 'udp' or 'both'.${NC}"
                 ;;
         esac
     done
@@ -236,7 +236,7 @@ EOF
         systemctl enable socat-proxy-udp-${vps_port}.service
     fi
 
-    echo -e "${GREEN}Reverse proxy impostato sulla porta ${vps_port} che inoltra al client sulla porta ${local_port} per il protocollo ${protocol}.${NC}"
+    echo -e "${GREEN}Reverse proxy set on port ${vps_port} that forwards to port ${local_port} with protocol ${protocol}.${NC}"
     echo "${vps_port} -> ${local_port} (${protocol})" >> /etc/wireguard/forwarded_ports
 }
 
@@ -244,11 +244,11 @@ EOF
 
 function remove_reverse_proxy() {
     while true; do
-        read -p "Inserisci la porta VPS del reverse proxy da rimuovere: " vps_port
+        read -p "insert the port used in the vps side of the proxy you want to remove: " vps_port
         if [[ $vps_port =~ ^[0-9]+$ ]] && [ $vps_port -ge 1 ] && [ $vps_port -le 65535 ] && [ $vps_port -ne $PORT ] && [ $vps_port -ne 65522 ]; then
             break
         else
-            echo -e "${ORANGE}Porta non valida. Assicurati che non sia la porta WireGuard o la porta SSH (65522). Riprova.${NC}"
+            echo -e "${ORANGE}Invalid Port. Try again.${NC}"
         fi
     done
 
@@ -268,32 +268,32 @@ function remove_reverse_proxy() {
     # Rimuovi la porta dall'elenco dei proxy inoltrati
     sed -i "/${vps_port} ->/d" /etc/wireguard/forwarded_ports
 
-    echo -e "${GREEN}Reverse proxy sulla porta ${vps_port} rimosso con successo.${NC}"
+    echo -e "${GREEN}Reverse proxy on port ${vps_port} removed successfully.${NC}"
 }
 
 function list_reverse_proxy() {
     if [ -f /etc/wireguard/forwarded_ports ]; then
-        echo -e "${GREEN}Lista dei reverse proxy attivi:${NC}"
+        echo -e "${GREEN}Active reverse proxy list:${NC}"
         while IFS= read -r line; do
             echo -e "${GREEN}${line}${NC}"
         done < /etc/wireguard/forwarded_ports
     else
-        echo -e "${ORANGE}Non ci sono reverse proxy attivi al momento.${NC}"
+        echo -e "${ORANGE}No proxy found.${NC}"
     fi
 }
 
 function check_tunnel_status() {
     if wg show $WG_INTERFACE > /dev/null 2>&1; then
-        echo -e "${GREEN}Il tunnel WireGuard (${WG_INTERFACE}) è attivo e funzionante.${NC}"
+        echo -e "${GREEN}WireGuard tunnel (${WG_INTERFACE}) is working.${NC}"
     else
-        echo -e "${RED}Il tunnel WireGuard (${WG_INTERFACE}) non è attivo.${NC}"
-        read -p "Vuoi riavviare il tunnel WireGuard? (s/n): " response
-        if [[ "$response" =~ ^[sS]$ ]]; then
+        echo -e "${RED}Wireguard tunnel (${WG_INTERFACE}) is not working.${NC}"
+        read -p "Do  you want to try restarting it ? (y/n): " response
+        if [[ "$response" =~ ^[nN]$ ]]; then
             systemctl restart wg-quick@${WG_INTERFACE}
             if wg show $WG_INTERFACE > /dev/null 2>&1; then
-                echo -e "${GREEN}Il tunnel WireGuard (${WG_INTERFACE}) è stato riavviato con successo ed è ora attivo.${NC}"
+                echo -e "${GREEN}Wireguard tunnel (${WG_INTERFACE}) was restarted and now is working.${NC}"
             else
-                echo -e "${RED}Errore durante il riavvio del tunnel WireGuard. Controlla i log per maggiori dettagli.${NC}"
+                echo -e "${RED}Error while restarting the tunnel , check the log for more details.${NC}"
             fi
         fi
     fi
@@ -323,19 +323,18 @@ function uninstall_wireguard() {
     # Rimuovi il file di marker per indicare che WireGuard è stato disinstallato
     rm -f $WG_INSTALLED_MARKER
 
-    echo -e "${GREEN}WireGuard e tutti i reverse proxy sono stati disinstallati con successo.${NC}"
+    echo -e "${GREEN}Wireguard and the reverse proxy have been removed sucessfully.${NC}"
 }
 
 function manageMenu() {
-    echo "Benvenuto in WireGuard Management!"
-    echo ""
-    echo "Cosa vuoi fare?"
-    echo "   1) Controlla se il tunnel WireGuard è attivo"
-    echo "   2) Configura un nuovo reverse proxy"
-    echo "   3) Visualizza i reverse proxy attivi"
-    echo "   4) Rimuovi un reverse proxy esistente"
-    echo "   5) Disinstalla WireGuard"
-    echo "   6) Esci"
+    echo "Welcome"
+    echo "What you want to do?"
+    echo "   1) Check wireguard status"
+    echo "   2) Add a new reverse proxy"
+    echo "   3) List current reverse proxy"
+    echo "   4) Remove a reverse proxy"
+    echo "   5) Uninstall everything"
+    echo "   6) Exit"
     
     until [[ ${MENU_OPTION} =~ ^[1-6]$ ]]; do
         read -rp "Seleziona un'opzione [1-6]: " MENU_OPTION
