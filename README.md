@@ -9,7 +9,8 @@ This project aims to do the same thing done in this video : https://www.youtube.
 - for most use a vps with 1 core and 1gb of ram should be able to do around  100-500MB/s
 
 ```bash
-wget https://raw.githubusercontent.com/Brazzo978/
+wget https://raw.githubusercontent.com/Brazzo978/Wg-easy-reverse-proxy/refs/heads/main/wg-setup-rp.sh
+chmod +x wg-setup-rp-sh
 bash ./wg-setup-rp.sh
 ```
   
