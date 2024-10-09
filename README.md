@@ -5,7 +5,7 @@ This project aims to do the same thing done in this video : https://www.youtube.
 #Requirements 
 
 - Ubuntu >= 16.04
-- Debian = 10-12
+- Debian = 10+
 - for most use a vps with 1 core and 1gb of ram should be able to do around  100-500MB/s
 
 ```bash
